@@ -600,7 +600,7 @@ async function updateUsuarioSistemaMedico(
   }
 }
 
-router.delete("/:id", requireAdmin, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const result = await pool.query(
       "DELETE FROM usuarios WHERE id=$1 RETURNING *",
