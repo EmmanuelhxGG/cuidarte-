@@ -1,0 +1,83 @@
+name: Calidad Cuidarte+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: docker run --rm -v "$PWD:/src:ro" zricethezav/gitleaks:v8.24.3 git /src --redact=100
+  dockerfiles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          for file in BACKEND/Dockerfile FRONTEND/Dockerfile; do
+            docker run --rm -i hadolint/hadolint:v2.12.0 < "$file"
+          done
+  pruebas:
+    runs-on: ubuntu-latest
+    needs: [secretos, dockerfiles]
+    env:
+      WEB_URL: http://localhost:3334
+      API_URL: http://localhost:4445
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: |
+            BACKEND/package-lock.json
+            pruebas-e2e/package-lock.json
+      - name: Crear entorno QA
+        run: |
+          for key in POSTGRES_PASSWORD JWT_SECRET QA_PASSWORD; do
+            value=$(openssl rand -hex 24)
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
+      - name: Construir y levantar servicios
+        run: docker compose up -d --build --wait --wait-timeout 120
+      - name: Jest y Supertest
+        working-directory: BACKEND
+        run: |
+          npm ci
+          DATABASE_URL="postgres://postgres:$POSTGRES_PASSWORD@127.0.0.1:15443/cuidarteplus" npm test -- --ci
+      - name: Playwright y axe-core
+        working-directory: pruebas-e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test --workers=2
+      - name: k6 humo
+        run: docker run --rm --network host -e API_URL -e QA_PASSWORD -e PROFILE=humo -v "$PWD/pruebas-e2e:/tests:ro" grafana/k6:1.0.0 run /tests/carga.js
+      - name: ZAP pasivo
+        run: |
+          mkdir -p evidencias/final
+          for target in web api; do
+            url="$WEB_URL"
+            if [ "$target" = api ]; then url="$API_URL"; fi
+            docker run --rm --network host -u "$(id -u):$(id -g)" -v "$PWD/evidencias/final:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t "$url" -J "$target.json" -r "$target.html" -I
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidencias-qa
+          path: |
+            BACKEND/coverage
+            pruebas-e2e/playwright-report
+            evidencias/final
+      - name: Detener servicios
+        if: always()
+        run: docker compose down -v

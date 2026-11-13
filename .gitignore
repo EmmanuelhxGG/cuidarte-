@@ -1,0 +1,15 @@
+node_modules/
+.npm-cache/
+.env
+.env.*
+!.env.example
+.scannerwork/
+coverage/
+dist/
+evidencias/
+playwright-report/
+test-results/
+*.log
+BACKEND/sql/dump-cuidarteplus.sql
+BACKEND/uploads/**
+.playwright-browsers/
