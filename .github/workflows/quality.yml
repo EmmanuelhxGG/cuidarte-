@@ -71,7 +71,7 @@ jobs:
             if [ "$target" = api ]; then url="$API_URL"; fi
             docker run --rm --network host -v "$PWD/evidencias/final:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t "$url" -J "$target.json" -r "$target.html" -I
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: evidencias-qa
