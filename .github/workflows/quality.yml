@@ -65,10 +65,11 @@ jobs:
       - name: ZAP pasivo
         run: |
           mkdir -p evidencias/final
+          chmod a+rwx evidencias/final
           for target in web api; do
             url="$WEB_URL"
             if [ "$target" = api ]; then url="$API_URL"; fi
-            docker run --rm --network host -u "$(id -u):$(id -g)" -v "$PWD/evidencias/final:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t "$url" -J "$target.json" -r "$target.html" -I
+            docker run --rm --network host -v "$PWD/evidencias/final:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t "$url" -J "$target.json" -r "$target.html" -I
           done
       - uses: actions/upload-artifact@v4
         if: always()
