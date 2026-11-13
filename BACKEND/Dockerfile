@@ -1,4 +1,4 @@
-FROM node:24.15.0-alpine
+FROM node:26.13.0-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
