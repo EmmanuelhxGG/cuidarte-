@@ -1,4 +1,4 @@
-FROM node:24.15.0-alpine AS builder
+FROM node:26.13.0-alpine AS builder
 WORKDIR /app
 ARG VITE_API_URL=http://localhost:4445
 COPY package.json package-lock.json ./
